@@ -28,7 +28,7 @@ class TopologyChangeTests(TestCase):
     @local
     def test_removed_node_stops_reconnecting(self):
         """ Ensure we stop reconnecting after a node is removed. PYTHON-1181 """
-        use_cluster("test_down_then_removed", [3], start=True)
+        use_cluster("test_down_then_removed", [4], start=True)
 
         state_listener = StateListener()
         cluster = TestCluster()
