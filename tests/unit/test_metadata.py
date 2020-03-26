@@ -109,11 +109,13 @@ class StrategiesTest(unittest.TestCase):
         rs = ReplicationStrategy()
 
         simple_transient = rs.create('SimpleStrategy', {'replication_factor': '3/1'})
-        self.assertEqual(simple_transient.replication_factor, 3)
-        self.assertEqual(simple_transient.transient_replicas, 1)
+        self.assertEqual(simple_transient.replication_factor_info.all_replicas, 3)
+        self.assertEqual(simple_transient.replication_factor_info.full_replicas, 2)
+        self.assertEqual(simple_transient.replication_factor_info.transient_replicas, 1)
+        self.assertEqual(simple_transient.replication_factor, 2)
         self.assertIn("'replication_factor': '3/1'", simple_transient.export_for_schema())
 
-        simple_str = rs.create('SimpleStrategy', {'replication_factor': '3'})
+        simple_str = rs.create('SimpleStrategy', {'replication_factor': '2'})
         self.assertNotEqual(simple_transient, simple_str)
 
         # make token replica map
@@ -152,8 +154,13 @@ class StrategiesTest(unittest.TestCase):
         rs = ReplicationStrategy()
 
         nts_transient = rs.create('NetworkTopologyStrategy', {'dc1': '3/1', 'dc2': '5/1'})
-        self.assertEqual(nts_transient.dc_replication_factors['dc1'], '3/1')
-        self.assertEqual(nts_transient.dc_replication_factors['dc2'], '5/1')
+        self.assertEqual(nts_transient.dc_replication_factors_info['dc1'].all_replicas, 3)
+        self.assertEqual(nts_transient.dc_replication_factors_info['dc1'].full_replicas, 2)
+        self.assertEqual(nts_transient.dc_replication_factors_info['dc1'].transient_replicas, 1)
+        self.assertEqual(str(nts_transient.dc_replication_factors_info['dc1']), '3/1')
+        self.assertEqual(str(nts_transient.dc_replication_factors_info['dc2']), '5/1')
+        self.assertEqual(nts_transient.dc_replication_factors['dc1'], 2)
+        self.assertEqual(nts_transient.dc_replication_factors['dc2'], 4)
         self.assertIn("'dc1': '3/1', 'dc2': '5/1'", nts_transient.export_for_schema())
 
         nts_str = rs.create('NetworkTopologyStrategy', {'dc1': '3', 'dc2': '5'})
