@@ -34,12 +34,40 @@ from cassandra.metadata import (Murmur3Token, MD5Token,
                                 UserType, KeyspaceMetadata, get_schema_parser,
                                 _UnknownStrategy, ColumnMetadata, TableMetadata,
                                 IndexMetadata, Function, Aggregate,
-                                Metadata, TokenMap)
+                                Metadata, TokenMap, ReplicationFactor)
 from cassandra.policies import SimpleConvictionPolicy
 from cassandra.pool import Host
 
 
 log = logging.getLogger(__name__)
+
+
+class ReplicationFactorTest(unittest.TestCase):
+
+    def test_replication_factor_parsing(self):
+        rf = ReplicationFactor.create('3')
+        self.assertEqual(rf.all_replicas, 3)
+        self.assertEqual(rf.full_replicas, 3)
+        self.assertEqual(rf.transient_replicas, None)
+        self.assertEqual(str(rf), '3')
+
+        rf = ReplicationFactor.create('3/1')
+        self.assertEqual(rf.all_replicas, 3)
+        self.assertEqual(rf.full_replicas, 2)
+        self.assertEqual(rf.transient_replicas, 1)
+        self.assertEqual(str(rf), '3/1')
+
+        self.assertRaises(ValueError, ReplicationFactor.create, '3/')
+        self.assertRaises(ValueError, ReplicationFactor.create, 'a/1')
+        self.assertRaises(ValueError, ReplicationFactor.create, 'a')
+        self.assertRaises(ValueError, ReplicationFactor.create, '3/a')
+
+    def test_replication_factor_equality(self):
+        self.assertEqual(ReplicationFactor.create('3/1'), ReplicationFactor.create('3/1'))
+        self.assertEqual(ReplicationFactor.create('3'), ReplicationFactor.create('3'))
+        self.assertNotEqual(ReplicationFactor.create('3'), ReplicationFactor.create('3/1'))
+        self.assertNotEqual(ReplicationFactor.create('3'), ReplicationFactor.create('3/1'))
+
 
 
 class StrategiesTest(unittest.TestCase):
@@ -109,9 +137,7 @@ class StrategiesTest(unittest.TestCase):
         rs = ReplicationStrategy()
 
         simple_transient = rs.create('SimpleStrategy', {'replication_factor': '3/1'})
-        self.assertEqual(simple_transient.replication_factor_info.all_replicas, 3)
-        self.assertEqual(simple_transient.replication_factor_info.full_replicas, 2)
-        self.assertEqual(simple_transient.replication_factor_info.transient_replicas, 1)
+        self.assertEqual(simple_transient.replication_factor_info, ReplicationFactor(3, 1))
         self.assertEqual(simple_transient.replication_factor, 2)
         self.assertIn("'replication_factor': '3/1'", simple_transient.export_for_schema())
 
@@ -136,6 +162,8 @@ class StrategiesTest(unittest.TestCase):
 
         self.assertEqual(nts_int.dc_replication_factors['dc1'], 3)
         self.assertEqual(nts_str.dc_replication_factors['dc1'], 3)
+        self.assertEqual(nts_int.dc_replication_factors_info['dc1'], ReplicationFactor(3))
+        self.assertEqual(nts_str.dc_replication_factors_info['dc1'], ReplicationFactor(3))
 
         self.assertEqual(nts_int.export_for_schema(), nts_str.export_for_schema())
         self.assertEqual(nts_int, nts_str)
@@ -154,11 +182,8 @@ class StrategiesTest(unittest.TestCase):
         rs = ReplicationStrategy()
 
         nts_transient = rs.create('NetworkTopologyStrategy', {'dc1': '3/1', 'dc2': '5/1'})
-        self.assertEqual(nts_transient.dc_replication_factors_info['dc1'].all_replicas, 3)
-        self.assertEqual(nts_transient.dc_replication_factors_info['dc1'].full_replicas, 2)
-        self.assertEqual(nts_transient.dc_replication_factors_info['dc1'].transient_replicas, 1)
-        self.assertEqual(str(nts_transient.dc_replication_factors_info['dc1']), '3/1')
-        self.assertEqual(str(nts_transient.dc_replication_factors_info['dc2']), '5/1')
+        self.assertEqual(nts_transient.dc_replication_factors_info['dc1'], ReplicationFactor(3, 1))
+        self.assertEqual(nts_transient.dc_replication_factors_info['dc2'], ReplicationFactor(5, 1))
         self.assertEqual(nts_transient.dc_replication_factors['dc1'], 2)
         self.assertEqual(nts_transient.dc_replication_factors['dc2'], 4)
         self.assertIn("'dc1': '3/1', 'dc2': '5/1'", nts_transient.export_for_schema())
